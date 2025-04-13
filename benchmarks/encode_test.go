@@ -582,26 +582,26 @@ func Benchmark_Encode_MapInterface_EncodingJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_MapInterface_JsonIter(b *testing.B) {
-	v := benchMapValue()
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := json.Marshal(v); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+// func Benchmark_Encode_MapInterface_JsonIter(b *testing.B) {
+// 	v := benchMapValue()
+// 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+// 	b.ReportAllocs()
+// 	for i := 0; i < b.N; i++ {
+// 		if _, err := json.Marshal(v); err != nil {
+// 			b.Fatal(err)
+// 		}
+// 	}
+// }
 
-func Benchmark_Encode_MapInterface_Jettison(b *testing.B) {
-	v := benchMapValue()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := jettison.Marshal(v); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+// func Benchmark_Encode_MapInterface_Jettison(b *testing.B) {
+// 	v := benchMapValue()
+// 	b.ReportAllocs()
+// 	for i := 0; i < b.N; i++ {
+// 		if _, err := jettison.Marshal(v); err != nil {
+// 			b.Fatal(err)
+// 		}
+// 	}
+// }
 
 func Benchmark_Encode_MapInterface_SegmentioJson(b *testing.B) {
 	v := benchMapValue()
