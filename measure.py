@@ -2,6 +2,38 @@ import os
 import subprocess
 import sys
 
+# Dependencies:
+# 1. Install graphviz: sudo apt install graphviz
+# 2. Install FlameGraph to where you want: git clone https://github.com/brendangregg/FlameGraph.git 
+# 3. Install go-torch: go install github.com/uber/go-torch@latest
+
+# usage:
+# python3 measure.py <workloads> <flamegraph_dir>
+# find the flamegraph in analyze_<workloads> directory
+
+# Setup configuration
+workloads = sys.argv[1] if len(sys.argv) > 1 else "withoutsleep" # withoutsleep, withsleep
+flamegraph_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "FlameGraph")
+# Setup possible CPUsets, gomaxprocs, and parallelisms you want to test
+CPUsets = {
+    '8p': '0,2,4,6,8,10,12,14',
+}
+possible_gomaxprocs   = [8] 
+possible_parallelisms = [1] # see RunParallel function in go's testing package
+benchiters = {'withsleep': 50000, 'withoutsleep': 500000}
+benchiter = benchiters[workloads]
+
+# Setup environment variables
+os.environ['PATH'] = os.environ['PATH'] + ':' + flamegraph_dir
+os.environ['PATH'] = os.environ['PATH'] + ':' + subprocess.check_output(['go', 'env', 'GOPATH']).decode().strip() + '/bin'
+
+# Setup result directory
+Result_dir = f'analyze_{workloads}'
+if os.path.exists(Result_dir):
+    for file in os.listdir(Result_dir):
+        os.remove(os.path.join(Result_dir, file))
+os.makedirs(Result_dir, exist_ok=True)
+
 def measure_cpu_utilization(cpuset):
     totals = []
     idles = []
@@ -21,34 +53,6 @@ def measure_cpu_utilization(cpuset):
     assert len(idles) == len(cpuset)
     return totals, idles
 
-# Setup configuration
-workloads = sys.argv[1] if len(sys.argv) > 1 else "withoutsleep" # withoutsleep, withsleep
-flamegraph_dir = sys.argv[2] if len(sys.argv) > 2 else "/users/Tingjia/project/FlameGraph"
-# Setup possible CPUsets
-CPUsets = {
-    '8p': '0,2,4,6,8,10,12,14',
-}
-
-possible_gomaxprocs   = [8]
-possible_parallelisms = [1]
-
-benchiters = {'withsleep': 50000, 'withoutsleep': 500000, 'randomsleep': 50000}
-
-os.environ['PATH'] = os.environ['PATH'] + ':' + flamegraph_dir
-os.environ['PATH'] = os.environ['PATH'] + ':' + subprocess.check_output(['go', 'env', 'GOPATH']).decode().strip() + '/bin'
-
-Result_dir = f'analyze_{workloads}'
-benchiter = benchiters[workloads]
-
-# Create flamegraphs directory
-# Clear and recreate flamegraphs directory
-if os.path.exists(Result_dir):
-    for file in os.listdir(Result_dir):
-        os.remove(os.path.join(Result_dir, file))
-os.makedirs(Result_dir, exist_ok=True)
-
-max_throughput = 0
-max_latency = 0
 
 for (cpuname, cpuset) in CPUsets.items():
     # Change to benchmarks directory
@@ -101,8 +105,6 @@ for (cpuname, cpuset) in CPUsets.items():
                     if 'ns/op' in line:
                         latencies[possible_parallelism][gomaxprocs] = float(line.split()[1])
                         throughputs[possible_parallelism][gomaxprocs] = float(line.split()[3])
-                        max_latency = max(max_latency, latencies[possible_parallelism][gomaxprocs])
-                        max_throughput = max(max_throughput, throughputs[possible_parallelism][gomaxprocs])
 
 print(latencies)
 print(throughputs)
