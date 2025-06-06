@@ -3,7 +3,14 @@ package benchmark
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"math/rand"
+	"os"
+	"runtime"
+	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
@@ -91,6 +98,99 @@ func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonNoEscape(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func Benchmark_Decode_MixStruct_Parallel_Unmarshal_GoJson_withsleep(b *testing.B) {
+	b.ReportAllocs()
+
+	if p := os.Getenv("parallelism"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			b.SetParallelism(val)
+		}
+	}
+	if p := os.Getenv("GOMAXPROCS"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			runtime.GOMAXPROCS(val)
+		}
+	}
+	var smallCount, mediumCount, largeCount int64
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			result := SmallPayload{}
+			r := rand.Intn(3)
+
+			if r == 0 {
+				if err := gojson.Unmarshal(SmallFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&smallCount, 1)
+			} else if r == 1 {
+				if err := gojson.Unmarshal(MediumFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&mediumCount, 1)
+			} else {
+				if err := gojson.Unmarshal(LargeFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&largeCount, 1)
+			}
+			time.Sleep(time.Microsecond)
+		}
+	})
+
+	fmt.Printf("Small: %d, Medium: %d, Large: %d\n", smallCount, mediumCount, largeCount)
+	// Calculate average bytes processed per operation based on counts
+	totalOps := smallCount + mediumCount + largeCount
+	totalBytes := smallCount*int64(len(SmallFixture)) + mediumCount*int64(len(MediumFixture)) + largeCount*int64(len(LargeFixture))
+	b.SetBytes(totalBytes / totalOps)
+}
+
+func Benchmark_Decode_MixStruct_Parallel_Unmarshal_GoJson_withoutsleep(b *testing.B) {
+	b.ReportAllocs()
+
+	if p := os.Getenv("parallelism"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			b.SetParallelism(val)
+		}
+	}
+	if p := os.Getenv("GOMAXPROCS"); p != "" {
+		if val, err := strconv.Atoi(p); err == nil {
+			runtime.GOMAXPROCS(val)
+		}
+	}
+	var smallCount, mediumCount, largeCount int64
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			result := SmallPayload{}
+			r := rand.Intn(3)
+
+			if r == 0 {
+				if err := gojson.Unmarshal(SmallFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&smallCount, 1)
+			} else if r == 1 {
+				if err := gojson.Unmarshal(MediumFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&mediumCount, 1)
+			} else {
+				if err := gojson.Unmarshal(LargeFixture, &result); err != nil {
+					b.Fatal(err)
+				}
+				atomic.AddInt64(&largeCount, 1)
+			}
+		}
+	})
+
+	fmt.Printf("Small: %d, Medium: %d, Large: %d\n", smallCount, mediumCount, largeCount)
+	// Calculate average bytes processed per operation based on counts
+	totalOps := smallCount + mediumCount + largeCount
+	totalBytes := smallCount*int64(len(SmallFixture)) + mediumCount*int64(len(MediumFixture)) + largeCount*int64(len(LargeFixture))
+	b.SetBytes(totalBytes / totalOps)
 }
 
 func Benchmark_Decode_SmallStruct_Stream_EncodingJson(b *testing.B) {
